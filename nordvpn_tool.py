@@ -24,19 +24,34 @@ class Colors:
 
 class NordVPNTool:
     def __init__(self):
-        self.nordvpn_installed = self.check_nordvpn_installed()
+        self.nordvpn_cmd = self._find_nordvpn_command()
+        self.nordvpn_installed = self.nordvpn_cmd is not None
+
+    def _find_nordvpn_command(self) -> Optional[str]:
+        """Findet den nordvpn Befehl im System"""
+        # Mögliche Pfade zum nordvpn Binary (Linux)
+        possible_paths = [
+            "nordvpn",  # Im PATH
+            "/usr/bin/nordvpn",
+            "/usr/local/bin/nordvpn",
+        ]
+
+        for path in possible_paths:
+            try:
+                result = subprocess.run([path, "--version"],
+                                      capture_output=True, check=True, timeout=5)
+                return path  # Gefunden!
+            except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+                continue
+
+        return None
 
     def check_nordvpn_installed(self) -> bool:
         """Prüft ob NordVPN installiert ist"""
-        try:
-            subprocess.run(["nordvpn", "--version"],
-                         capture_output=True, check=True)
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return False
+        return self.nordvpn_installed
 
     def install_nordvpn(self):
-        """Installiert NordVPN CLI"""
+        """Installiert NordVPN CLI (nur Linux)"""
         print(f"\n{Colors.HEADER}=== NordVPN Installation ==={Colors.ENDC}")
         print(f"\n{Colors.WARNING}NordVPN wird installiert...{Colors.ENDC}")
 
@@ -49,8 +64,11 @@ class NordVPNTool:
             ], check=True)
 
             print(f"{Colors.OKGREEN}✓ NordVPN erfolgreich installiert!{Colors.ENDC}")
-            print(f"\n{Colors.OKCYAN}Bitte melde dich an mit: nordvpn login{Colors.ENDC}")
-            self.nordvpn_installed = True
+            print(f"\n{Colors.OKCYAN}Verwende Option 2 (Login Browser) oder Option 3 (Login Token){Colors.ENDC}")
+
+            # Neu scannen nach Installation
+            self.nordvpn_cmd = self._find_nordvpn_command()
+            self.nordvpn_installed = self.nordvpn_cmd is not None
 
         except subprocess.CalledProcessError as e:
             print(f"{Colors.FAIL}✗ Installation fehlgeschlagen: {e}{Colors.ENDC}")
@@ -85,12 +103,14 @@ class NordVPNTool:
             return
 
         try:
-            result = subprocess.run(["nordvpn", "status"],
+            result = subprocess.run([self.nordvpn_cmd, "status"],
                                   capture_output=True, text=True, check=True)
             print(f"\n{Colors.HEADER}=== NordVPN Status ==={Colors.ENDC}\n")
             print(result.stdout)
         except subprocess.CalledProcessError:
             print(f"{Colors.FAIL}✗ Fehler beim Abrufen des Status{Colors.ENDC}")
+        except Exception as e:
+            print(f"{Colors.FAIL}✗ Fehler: {e}{Colors.ENDC}")
 
     def connect_to_country(self, country: str):
         """Verbindet zu einem bestimmten Land"""
@@ -100,7 +120,7 @@ class NordVPNTool:
 
         try:
             print(f"\n{Colors.WARNING}Verbinde zu {country}...{Colors.ENDC}")
-            result = subprocess.run(["nordvpn", "connect", country],
+            result = subprocess.run([self.nordvpn_cmd, "connect", country],
                                   capture_output=True, text=True, check=True)
             print(f"{Colors.OKGREEN}✓ {result.stdout}{Colors.ENDC}")
         except subprocess.CalledProcessError as e:
@@ -114,7 +134,7 @@ class NordVPNTool:
 
         try:
             print(f"\n{Colors.WARNING}Verbinde zu Server {server}...{Colors.ENDC}")
-            result = subprocess.run(["nordvpn", "connect", server],
+            result = subprocess.run([self.nordvpn_cmd, "connect", server],
                                   capture_output=True, text=True, check=True)
             print(f"{Colors.OKGREEN}✓ {result.stdout}{Colors.ENDC}")
         except subprocess.CalledProcessError as e:
@@ -128,7 +148,7 @@ class NordVPNTool:
 
         try:
             print(f"\n{Colors.WARNING}Verbinde zu {specialty} Server...{Colors.ENDC}")
-            result = subprocess.run(["nordvpn", "connect", "--group", specialty],
+            result = subprocess.run([self.nordvpn_cmd, "connect", "--group", specialty],
                                   capture_output=True, text=True, check=True)
             print(f"{Colors.OKGREEN}✓ {result.stdout}{Colors.ENDC}")
         except subprocess.CalledProcessError as e:
@@ -141,7 +161,7 @@ class NordVPNTool:
             return
 
         try:
-            result = subprocess.run(["nordvpn", "disconnect"],
+            result = subprocess.run([self.nordvpn_cmd, "disconnect"],
                                   capture_output=True, text=True, check=True)
             print(f"{Colors.OKGREEN}✓ {result.stdout}{Colors.ENDC}")
         except subprocess.CalledProcessError as e:
@@ -155,7 +175,7 @@ class NordVPNTool:
 
         try:
             print(f"\n{Colors.WARNING}Verbinde zum besten Server...{Colors.ENDC}")
-            result = subprocess.run(["nordvpn", "connect"],
+            result = subprocess.run([self.nordvpn_cmd, "connect"],
                                   capture_output=True, text=True, check=True)
             print(f"{Colors.OKGREEN}✓ {result.stdout}{Colors.ENDC}")
         except subprocess.CalledProcessError as e:
@@ -168,7 +188,7 @@ class NordVPNTool:
             return
 
         try:
-            result = subprocess.run(["nordvpn", "countries"],
+            result = subprocess.run([self.nordvpn_cmd, "countries"],
                                   capture_output=True, text=True, check=True)
             print(f"\n{Colors.HEADER}=== Verfügbare Länder ==={Colors.ENDC}\n")
             print(result.stdout)
@@ -182,7 +202,7 @@ class NordVPNTool:
             return
 
         try:
-            result = subprocess.run(["nordvpn", "cities", country],
+            result = subprocess.run([self.nordvpn_cmd, "cities", country],
                                   capture_output=True, text=True, check=True)
             print(f"\n{Colors.HEADER}=== Verfügbare Städte in {country} ==={Colors.ENDC}\n")
             print(result.stdout)
@@ -190,16 +210,43 @@ class NordVPNTool:
             print(f"{Colors.FAIL}✗ Fehler beim Abrufen der Städte{Colors.ENDC}")
 
     def login(self):
-        """NordVPN Login"""
+        """NordVPN Login (Browser)"""
         if not self.nordvpn_installed:
             print(f"{Colors.FAIL}✗ NordVPN ist nicht installiert{Colors.ENDC}")
             return
 
         print(f"\n{Colors.OKCYAN}Öffne Browser für Login...{Colors.ENDC}")
         try:
-            subprocess.run(["nordvpn", "login"], check=True)
+            subprocess.run([self.nordvpn_cmd, "login"], check=True)
         except subprocess.CalledProcessError:
             print(f"{Colors.FAIL}✗ Login fehlgeschlagen{Colors.ENDC}")
+
+    def login_token(self):
+        """NordVPN Login mit Access Token (für headless/SSH)"""
+        if not self.nordvpn_installed:
+            print(f"{Colors.FAIL}✗ NordVPN ist nicht installiert{Colors.ENDC}")
+            return
+
+        print(f"\n{Colors.HEADER}=== Token-basierter Login ==={Colors.ENDC}")
+        print(f"\n{Colors.OKCYAN}Hole deinen Access Token von:{Colors.ENDC}")
+        print(f"{Colors.BOLD}https://my.nordaccount.com/dashboard/nordvpn/access-tokens/{Colors.ENDC}\n")
+        print(f"{Colors.WARNING}1. Erstelle einen neuen Access Token{Colors.ENDC}")
+        print(f"{Colors.WARNING}2. Kopiere den Token{Colors.ENDC}")
+        print(f"{Colors.WARNING}3. Füge ihn unten ein{Colors.ENDC}\n")
+
+        token = input(f"{Colors.OKGREEN}Access Token eingeben:{Colors.ENDC} ").strip()
+
+        if not token:
+            print(f"{Colors.FAIL}✗ Kein Token eingegeben{Colors.ENDC}")
+            return
+
+        try:
+            result = subprocess.run([self.nordvpn_cmd, "login", "--token", token],
+                                  capture_output=True, text=True, check=True)
+            print(f"{Colors.OKGREEN}✓ Login erfolgreich!{Colors.ENDC}")
+            print(result.stdout)
+        except subprocess.CalledProcessError as e:
+            print(f"{Colors.FAIL}✗ Login fehlgeschlagen: {e.stderr}{Colors.ENDC}")
 
     def logout(self):
         """NordVPN Logout"""
@@ -208,7 +255,7 @@ class NordVPNTool:
             return
 
         try:
-            subprocess.run(["nordvpn", "logout"], check=True)
+            subprocess.run([self.nordvpn_cmd, "logout"], check=True)
             print(f"{Colors.OKGREEN}✓ Erfolgreich abgemeldet{Colors.ENDC}")
         except subprocess.CalledProcessError:
             print(f"{Colors.FAIL}✗ Logout fehlgeschlagen{Colors.ENDC}")
@@ -220,7 +267,7 @@ class NordVPNTool:
             return
 
         try:
-            result = subprocess.run(["nordvpn", "settings"],
+            result = subprocess.run([self.nordvpn_cmd, "settings"],
                                   capture_output=True, text=True, check=True)
             print(f"\n{Colors.HEADER}=== NordVPN Einstellungen ==={Colors.ENDC}\n")
             print(result.stdout)
@@ -245,22 +292,23 @@ def print_menu():
 
 {Colors.BOLD}Installation & Setup:{Colors.ENDC}
   1)  NordVPN installieren
-  2)  Login
-  3)  Logout
+  2)  Login (Browser)
+  3)  Login (Token - für SSH/Headless)
+  4)  Logout
 
 {Colors.BOLD}Verbindung:{Colors.ENDC}
-  4)  Schnellverbindung (bester Server)
-  5)  Nach Land verbinden
-  6)  Nach Server verbinden
-  7)  Nach Stadt verbinden
-  8)  Spezialserver (P2P, Onion, etc.)
-  9)  Trennen
+  5)  Schnellverbindung (bester Server)
+  6)  Nach Land verbinden
+  7)  Nach Server verbinden
+  8)  Nach Stadt verbinden
+  9)  Spezialserver (P2P, Onion, etc.)
+  10) Trennen
 
 {Colors.BOLD}Informationen:{Colors.ENDC}
-  10) Status anzeigen
-  11) Aktuelle IP anzeigen
-  12) Verfügbare Länder anzeigen
-  13) Einstellungen anzeigen
+  11) Status anzeigen
+  12) Aktuelle IP anzeigen
+  13) Verfügbare Länder anzeigen
+  14) Einstellungen anzeigen
 
 {Colors.BOLD}Sonstiges:{Colors.ENDC}
   0)  Beenden
@@ -295,23 +343,26 @@ def main():
                 tool.login()
 
             elif choice == "3":
-                tool.logout()
+                tool.login_token()
 
             elif choice == "4":
-                tool.quick_connect()
+                tool.logout()
 
             elif choice == "5":
+                tool.quick_connect()
+
+            elif choice == "6":
                 tool.show_countries()
                 country = input(f"\n{Colors.OKGREEN}Land eingeben:{Colors.ENDC} ")
                 if country:
                     tool.connect_to_country(country)
 
-            elif choice == "6":
+            elif choice == "7":
                 server = input(f"\n{Colors.OKGREEN}Server eingeben (z.B. de123):{Colors.ENDC} ")
                 if server:
                     tool.connect_to_server(server)
 
-            elif choice == "7":
+            elif choice == "8":
                 country = input(f"\n{Colors.OKGREEN}Land eingeben:{Colors.ENDC} ")
                 if country:
                     tool.show_cities(country)
@@ -319,7 +370,7 @@ def main():
                     if city:
                         tool.connect_to_server(city)
 
-            elif choice == "8":
+            elif choice == "9":
                 print(f"\n{Colors.HEADER}Spezialserver:{Colors.ENDC}")
                 print("  1) P2P")
                 print("  2) Onion Over VPN")
@@ -335,19 +386,19 @@ def main():
                 if specialty_choice in specialty_map:
                     tool.connect_specialty(specialty_map[specialty_choice])
 
-            elif choice == "9":
+            elif choice == "10":
                 tool.disconnect()
 
-            elif choice == "10":
+            elif choice == "11":
                 tool.show_status()
 
-            elif choice == "11":
+            elif choice == "12":
                 tool.get_current_ip()
 
-            elif choice == "12":
+            elif choice == "13":
                 tool.show_countries()
 
-            elif choice == "13":
+            elif choice == "14":
                 tool.show_settings()
 
             else:
